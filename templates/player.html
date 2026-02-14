@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Anime Streamer</title>
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #fff;
+            font-family: sans-serif;
+        }
+
+        video {
+            width: 90%;
+            max-width: 1200px;
+            height: auto;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+        }
+
+        button:hover {
+            background: #555;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+
+<body>
+    <div class="controls">
+        <button onclick="shutdown()">Stop Server & Close</button>
+    </div>
+    <video id="video" controls></video>
+
+    <script>
+        var video = document.getElementById('video');
+        var urlParam = new URLSearchParams(window.location.search).get('url');
+        var subsParam = new URLSearchParams(window.location.search).get('subs');
+
+        // Construct proxy url
+        var proxyUrl = '/proxy?url=' + encodeURIComponent(urlParam);
+
+        if (Hls.isSupported()) {
+            var hls = new Hls();
+            hls.loadSource(proxyUrl);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                video.play();
+            });
+        }
+        else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = proxyUrl;
+            video.addEventListener('loadedmetadata', function () {
+                video.play();
+            });
+        }
+
+        if (subsParam) {
+            var track = document.createElement("track");
+            track.kind = "captions";
+            track.label = "English";
+            track.srclang = "en";
+            // Proxy the subtitle URL to avoid CORS issues
+            track.src = '/proxy?url=' + encodeURIComponent(subsParam);
+            track.default = true;
+            video.appendChild(track);
+        }
+
+        function shutdown() {
+            fetch('/shutdown', { method: 'POST' })
+                .then(r => {
+                    alert("Server stopped. You can close this tab.");
+                    window.close();
+                })
+                .catch(e => alert("Error stopping server: " + e));
+        }
+    </script>
+</body>
+
+</html>
