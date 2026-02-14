@@ -1,6 +1,6 @@
 # Web Anime CLI
 
-A powerful, terminal-based anime streaming and downloading tool. Watch your favorite series directly in your browser or download them for offline viewing, all from a clean command-line interface.
+A powerful, terminal-based anime streaming and downloading tool. Watch your favorite series directly in your browser.
 
 ## 🚀 Features
 
