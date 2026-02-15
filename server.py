@@ -45,21 +45,19 @@ def proxy():
             # We need to wrap them in our proxy.
             
             # Helper to encode
-            from urllib.parse import quote
+            from urllib.parse import quote, urljoin
             
             new_lines = []
-            base_uri = url.rsplit('/', 1)[0]
             
             for line in content.splitlines():
                 if line.strip() and not line.startswith('#'):
                     # It's a URL
                     target_url = line.strip()
-                    # Handle relative URLs
-                    if not target_url.startswith('http'):
-                        target_url = f"{base_uri}/{target_url}"
+                    # Resolve relative URLs safely (handles root-relative / and relative paths)
+                    full_url = urljoin(url, target_url)
                     
                     # Encode for proxy
-                    safe_url = quote(target_url)
+                    safe_url = quote(full_url)
                     safe_referer = quote(referer)
                     new_line = f"/proxy?url={safe_url}&referer={safe_referer}"
                     new_lines.append(new_line)
