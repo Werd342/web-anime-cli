@@ -45,7 +45,7 @@ def proxy():
             # We need to wrap them in our proxy.
             
             # Helper to encode
-            from urllib.parse import quote, urljoin
+            from urllib.parse import quote, urljoin, urlparse
             
             new_lines = []
             
@@ -53,9 +53,27 @@ def proxy():
                 if line.strip() and not line.startswith('#'):
                     # It's a URL
                     target_url = line.strip()
-                    # Resolve relative URLs safely (handles root-relative / and relative paths)
-                    full_url = urljoin(url, target_url)
                     
+                    # Logic to handle Gogoanime's weird relative paths that duplicate the full path
+                    # e.g. Base: /path/to/master.txt, Target: path/to/segment.ts (no leading slash)
+                    # Standard urljoin would make it /path/to/path/to/segment.ts
+                    
+                    full_url = urljoin(url, target_url) # Default behavior
+                    
+                    if not target_url.startswith('http') and not target_url.startswith('/'):
+                        # Check for overlap
+                        parsed_base = urlparse(url)
+                        base_path = parsed_base.path
+                        # Remove leading slash for comparison
+                        check_path = base_path[1:] if base_path.startswith('/') else base_path
+                        
+                        # If the target url starts with the first folder of the base path, assume it's root-relative
+                        first_segment = target_url.split('/')[0]
+                        if first_segment and check_path.startswith(first_segment):
+                             # Force absolute from root
+                             root_base = f"{parsed_base.scheme}://{parsed_base.netloc}/"
+                             full_url = urljoin(root_base, target_url)
+
                     # Encode for proxy
                     safe_url = quote(full_url)
                     safe_referer = quote(referer)
