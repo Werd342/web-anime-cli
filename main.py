@@ -189,6 +189,9 @@ def main():
                  
                  if server_process.poll() is not None:
                      print(f"Server failed to start! Exit code: {server_process.returncode}")
+                     # Try to read stderr if possible, but Popen defaults didn't capture it.
+                     print("Cannot stream without server. Aborting.")
+                     continue
                  else:
                      print("Server seems to be running.")
                  
@@ -201,7 +204,7 @@ def main():
                  safe_url = urllib.parse.quote(stream_url)
                  safe_sub = urllib.parse.quote(sub_url)
                  
-                 play_link = f"http://localhost:5000/?url={safe_url}&subs={safe_sub}"
+                 play_link = f"http://localhost:5001/?url={safe_url}&subs={safe_sub}"
                  print(f"Opening browser to: {play_link}")
                  webbrowser.open(play_link)
             else:

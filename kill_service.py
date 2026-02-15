@@ -1,7 +1,7 @@
 import requests
 import sys
 
-def kill_server(port=5000):
+def kill_server(port=5001):
     try:
         print(f"Sending shutdown signal to localhost:{port}...")
         requests.post(f"http://localhost:{port}/shutdown", timeout=2)

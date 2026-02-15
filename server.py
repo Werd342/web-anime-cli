@@ -7,7 +7,7 @@ import signal
 app = Flask(__name__)
 CORS(app)
 
-PORT = 5000
+PORT = 5001
 
 @app.route('/')
 def index():
@@ -58,21 +58,64 @@ def proxy():
                     # e.g. Base: /path/to/master.txt, Target: path/to/segment.ts (no leading slash)
                     # Standard urljoin would make it /path/to/path/to/segment.ts
                     
-                    full_url = urljoin(url, target_url) # Default behavior
+                    # 1. Standard Resolution
+                    full_url = urljoin(url, target_url)
                     
+                    # 2. Heuristic for Gogoanime's missing leading slash
                     if not target_url.startswith('http') and not target_url.startswith('/'):
-                        # Check for overlap
                         parsed_base = urlparse(url)
                         base_path = parsed_base.path
                         # Remove leading slash for comparison
                         check_path = base_path[1:] if base_path.startswith('/') else base_path
                         
-                        # If the target url starts with the first folder of the base path, assume it's root-relative
                         first_segment = target_url.split('/')[0]
                         if first_segment and check_path.startswith(first_segment):
-                             # Force absolute from root
                              root_base = f"{parsed_base.scheme}://{parsed_base.netloc}/"
                              full_url = urljoin(root_base, target_url)
+
+                    # 3. Final Safety Net: Check for double path duplication
+                    # This handles cases where different heuristics fail.
+                    parsed_full = urlparse(full_url)
+                    path = parsed_full.path
+                    
+                    # A. Generic Deduplication (Mid-split)
+                    # Split by slash, remove empty strings
+                    parts = [p for p in path.split('/') if p]
+                    if len(parts) >= 4: # Need reasonable length to suspect duplication
+                         mid = len(parts) // 2
+                         # Check if the first half equals the second half (roughly)
+                         # We iterate to find the longest repeating sequence
+                         for length in range(mid, 1, -1):
+                             chunk1 = parts[:length]
+                             chunk2 = parts[length:2*length]
+                             if chunk1 == chunk2:
+                                 # Duplication detected!
+                                 # Keep one copy and the rest
+                                 keep = parts[:length] + parts[2*length:]
+                                 new_path = "/" + "/".join(keep)
+                                 full_url = f"{parsed_full.scheme}://{parsed_full.netloc}{new_path}"
+                                 break
+
+                    # B. Specific Check for Base Path Duplication with '//'
+                    base_dir = url.rsplit('/', 1)[0]
+                    base_path_only = urlparse(base_dir).path
+                    
+                    # Refresh parsed_full in case A changed it
+                    parsed_full = urlparse(full_url)
+                    resource_path = full_url.replace(f"{parsed_full.scheme}://{parsed_full.netloc}", "")
+                    
+                    if base_path_only and base_path_only in resource_path:
+                        # Check for /path//path Pattern
+                        check_double_slash = base_path_only + '//' + base_path_only[1:]
+                        if resource_path.startswith(check_double_slash):
+                             new_path = resource_path[len(base_path_only)+2:] # Skip /path//
+                             full_url = f"{parsed_full.scheme}://{parsed_full.netloc}{base_path_only}/{new_path}"
+                        
+                        # Check for /path/path Pattern (Standard)
+                        elif resource_path.startswith(base_path_only + base_path_only):
+                             new_path = resource_path[len(base_path_only):]
+                             full_url = f"{parsed_full.scheme}://{parsed_full.netloc}{new_path}"
+
 
                     # Encode for proxy
                     safe_url = quote(full_url)
@@ -109,5 +152,5 @@ def shutdown():
     return jsonify({"status": "Server shutting down..."})
 
 if __name__ == '__main__':
-    print(f"Starting server on http://localhost:{PORT}")
+    print(f"Starting server v2 (Fix Applied) on http://localhost:{PORT}")
     app.run(port=PORT, debug=False, threaded=True)
